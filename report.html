@@ -4,12 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>第15回レポート課題</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
-    <script src="https://unpkg.com/vue@3.0.0/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/axios@0.23.0/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* Vuelidateのエラースタイル */
+        .is-invalid { border-color: #dc3545 !important; }
+        .invalid-feedback { display: block; }
+    </style>
 </head>
 <body>
     <div id="app" class="container mt-5">
+        <div class="card mb-5">
+            <div class="card-header">
+                <h2>新規データ登録</h2>
+            </div>
+            <div class="card-body">
+                <form @submit.prevent="submitForm">
+                    <div class="form-group">
+                        <label for="name">名前:</label>
+                        <input type="text" id="name" class="form-control"
+                               v-model="form.name"
+                               @blur="v$.form.name.$touch()"
+                               :class="{ 'is-invalid': v$.form.name.$error }">
+                        <div v-if="v$.form.name.$error" class="invalid-feedback">
+                            <span v-for="error in v$.form.name.$errors" :key="error.$uid">{{ error.$message }}</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">メールアドレス:</label>
+                        <input type="email" id="email" class="form-control"
+                               v-model="form.email"
+                               @blur="v$.form.email.$touch()"
+                               :class="{ 'is-invalid': v$.form.email.$error }">
+                        <div v-if="v$.form.email.$error" class="invalid-feedback">
+                            <span v-for="error in v$.form.email.$errors" :key="error.$uid">{{ error.$message }}</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tel">電話番号:</label>
+                        <input type="text" id="tel" class="form-control"
+                               v-model="form.tel"
+                               @blur="v$.form.tel.$touch()"
+                               :class="{ 'is-invalid': v$.form.tel.$error }">
+                        <div v-if="v$.form.tel.$error" class="invalid-feedback">
+                           <span v-for="error in v$.form.tel.$errors" :key="error.$uid">{{ error.$message }}</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" :disabled="v$.form.$invalid">送信</button>
+                </form>
+            </div>
+        </div>
+
         <h1 class="text-center mb-4">MongoDB データ表示</h1>
         <div v-if="loading" class="text-center"><p>Loading...</p></div>
         <div v-if="error" class="alert alert-danger"><p>{{ error }}</p></div>
@@ -31,25 +78,102 @@
         </table>
     </div>
 
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/@vuelidate/core"></script>
+    <script src="https://unpkg.com/@vuelidate/validators"></script>
+
     <script>
+        // Vuelidateから必要な機能を取り出す [cite: 108, 112]
+        const { useVuelidate } = Vuelidate;
+        const { required, email, helpers } = VuelidateValidators;
+
+        // カスタムバリデーション：数字のみを許可
+        const isNumeric = (value) => /^[0-9]+$/.test(value);
+
         const appdata = {
-            data() {
-                return { items: [], loading: true, error: null }
+            // Vue3でVuelidateを使うためのおまじない
+            setup() {
+                return { v$: useVuelidate() }
             },
+            data() {
+                return {
+                    items: [],
+                    form: { // フォーム入力用のデータ
+                        name: '',
+                        email: '',
+                        tel: ''
+                    },
+                    loading: true,
+                    error: null
+                }
+            },
+            // バリデーションルールの定義 [cite: 194]
+            validations() {
+                return {
+                    form: {
+                        name: {
+                            required: helpers.withMessage('名前は必須項目です。', required) // [cite: 197]
+                        },
+                        email: {
+                            required: helpers.withMessage('メールアドレスは必須項目です。', required), // [cite: 199]
+                            email: helpers.withMessage('正しいメールアドレス形式で入力してください。', email) // [cite: 200]
+                        },
+                        tel: {
+                            required: helpers.withMessage('電話番号は必須項目です。', required),
+                            isNumeric: helpers.withMessage('電話番号は数字で入力してください。', isNumeric)
+                        }
+                    }
+                }
+            },
+            methods: {
+                // サーバーからデータを取得するメソッド
+                fetchData() {
+                    this.loading = true;
+                    const apiUrl = 'http://localhost:30074/notes_from_b';
+
+                    axios.get(apiUrl) // [cite: 2373]
+                        .then(response => {
+                            this.items = response.data;
+                        })
+                        .catch(error => {
+                            console.error('Error fetching data:', error);
+                            this.error = 'データの取得に失敗しました。バックエンドサーバーが起動しているか確認してください。';
+                        })
+                        .finally(() => {
+                            this.loading = false;
+                        });
+                },
+                // フォームを送信するメソッド
+                async submitForm() {
+                    // バリデーションチェックを実行
+                    const isFormCorrect = await this.v$.$validate();
+                    if (!isFormCorrect) {
+                        console.log('バリデーションエラー'); // [cite: 210]
+                        return;
+                    }
+
+                    // バリデーションが通ったら、POSTリクエストを送信
+                    const apiUrl = 'http://localhost:<あなたのポート番号>/notes_from_b';
+                    axios.post(apiUrl, this.form)
+                        .then(response => {
+                            console.log('submit'); // [cite: 213]
+                            // 送信成功後、リストを再読み込みしてフォームをリセット
+                            this.fetchData();
+                            this.form.name = '';
+                            this.form.email = '';
+                            this.form.tel = '';
+                            this.v$.$reset(); // バリデーションの状態をリセット
+                        })
+                        .catch(error => {
+                            console.error('Error submitting form:', error);
+                            alert('データの送信に失敗しました。');
+                        });
+                }
+            },
+            // アプリがマウントされた時に最初に実行される
             mounted() {
-                // ★★パソコンで動かす時はこちらを使う★★
-                const apiUrl = 'http://localhost:30074/notes_from_b';
-
-                // ↓↓さくらサーバーで動かす時は、下の行のコメントを外して、上の行をコメントアウトする↓↓
-                // const apiUrl = 'http://<さくらサーバーのIPアドレス>:<あなたのポート番号>/notes_from_b';
-
-                axios.get(apiUrl)
-                    .then(response => { this.items = response.data; })
-                    .catch(error => {
-                        console.error('Error fetching data:', error);
-                        this.error = 'データの取得に失敗しました。バックエンドサーバーが起動しているか確認してください。';
-                    })
-                    .finally(() => { this.loading = false; });
+                this.fetchData();
             }
         };
         Vue.createApp(appdata).mount('#app');
