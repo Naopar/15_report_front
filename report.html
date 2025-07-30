@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第15回レポート課題</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <script src="https://unpkg.com/vue@3.0.0/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios@0.23.0/dist/axios.min.js"></script>
+</head>
+<body>
+    <div id="app" class="container mt-5">
+        <h1 class="text-center mb-4">MongoDB データ表示</h1>
+        <div v-if="loading" class="text-center"><p>Loading...</p></div>
+        <div v-if="error" class="alert alert-danger"><p>{{ error }}</p></div>
+        <table v-if="!loading && !error" class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Mail</th>
+                    <th>Tel</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="item in items" :key="item._id">
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.mail }}</td>
+                    <td>{{ item.tel }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const appdata = {
+            data() {
+                return { items: [], loading: true, error: null }
+            },
+            mounted() {
+                // ★★パソコンで動かす時はこちらを使う★★
+                const apiUrl = 'http://localhost:30074/notes_from_b';
+
+                // ↓↓さくらサーバーで動かす時は、下の行のコメントを外して、上の行をコメントアウトする↓↓
+                // const apiUrl = 'http://<さくらサーバーのIPアドレス>:<あなたのポート番号>/notes_from_b';
+
+                axios.get(apiUrl)
+                    .then(response => { this.items = response.data; })
+                    .catch(error => {
+                        console.error('Error fetching data:', error);
+                        this.error = 'データの取得に失敗しました。バックエンドサーバーが起動しているか確認してください。';
+                    })
+                    .finally(() => { this.loading = false; });
+            }
+        };
+        Vue.createApp(appdata).mount('#app');
+    </script>
+</body>
+</html>
